@@ -1,0 +1,50 @@
+name: darkbloom-dev
+
+# Local end-to-end job for the Darkbloom sandbox development resolver. It must
+# stay inside the guardrails: push trigger only, one job, read-only permissions,
+# exact linux_arm64 labels, run-only steps and no expressions. Any change to
+# this file requires refreshing the approval pins (scripts/dev/approval.sh in
+# darkbloom-sandbox).
+on: push
+
+permissions:
+  contents: read
+
+jobs:
+  dev:
+    name: darkbloom-dev
+    runs-on: [self-hosted, linux, ARM64, darkbloom-linux-arm64]
+    timeout-minutes: 10
+    steps:
+      - name: Identify the guest
+        run: |
+          set -eux
+          uname -a
+          id
+          head -3 /etc/os-release
+          nproc
+          free -m
+
+      - name: Deterministic compute
+        run: |
+          set -eu
+          digest="$(seq 1 200000 | sha256sum | cut -d' ' -f1)"
+          echo "seq digest: $digest"
+          test "$digest" = "$(seq 1 200000 | sha256sum | cut -d' ' -f1)"
+          echo "$digest" > "$RUNNER_TEMP/digest.txt"
+
+      - name: HTTPS through the gateway
+        run: |
+          set -eu
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://github.com/)"
+          echo "github.com answered HTTP $code"
+          test "$code" -ge 200 -a "$code" -lt 400
+
+      - name: Job summary
+        run: |
+          {
+            echo "### Darkbloom sandbox development job"
+            echo "- runner: $RUNNER_NAME"
+            echo "- kernel: $(uname -r)"
+            echo "- seq digest: $(cat "$RUNNER_TEMP/digest.txt")"
+          } >> "$GITHUB_STEP_SUMMARY"
