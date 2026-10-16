@@ -1,0 +1,34 @@
+name: darkbloom-sandbox-probe
+
+# Spike probe: which egress host does OIDC need, and what throughput does a large
+# download get through the sandbox gateway? Prints no secrets (token is never echoed).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: [self-hosted, darkbloom-smoke-linux-arm64]
+    timeout-minutes: 15
+    steps:
+      - name: OIDC token request
+        continue-on-error: true
+        run: |
+          set -eu
+          echo "request host: $(printf '%s' "$ACTIONS_ID_TOKEN_REQUEST_URL" | sed -E 's#^https://([^/]+)/.*#\1#')"
+          resp=$(curl -fsS --max-time 30 -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=darkbloom-spike")
+          payload=$(printf '%s' "$resp" | sed -E 's/.*"value":"([^"]+)".*/\1/' | cut -d. -f2 | tr '_-' '/+')
+          case $(( ${#payload} % 4 )) in 2) payload="$payload==" ;; 3) payload="$payload=" ;; esac
+          printf '%s' "$payload" | base64 -d | grep -oE '"(iss|aud|runner_environment)":"[^"]*"'
+
+      - name: Download throughput through the gateway
+        run: |
+          set -eu
+          # First 32 MiB of a public release asset (github.com -> release-assets redirect).
+          curl -fsSL --max-time 300 -r 0-33554431 -o /dev/null \
+            -w 'bytes=%{size_download} seconds=%{time_total} speed=%{speed_download}B/s final_host=%{url_effective}\n' \
+            https://github.com/actions/runner/releases/download/v2.338.0/actions-runner-linux-arm64-2.338.0.tar.gz \
+            | sed -E 's#final_host=https://([^/]+)/.*#final_host=\1#'
