@@ -25,6 +25,17 @@ jobs:
           nproc
           free -m
 
+      - name: Optional hold for cancellation tests
+        run: |
+          set -eu
+          # A commit message containing "e2e-sleep N" (N <= 300) holds the job
+          # for N seconds, so an operator can cancel it mid-run.
+          seconds="$(grep -o 'e2e-sleep [0-9]*' "$GITHUB_EVENT_PATH" | head -n1 | cut -d' ' -f2 || true)"
+          if [ -n "$seconds" ] && [ "$seconds" -le 300 ]; then
+            echo "holding for $seconds s"
+            sleep "$seconds"
+          fi
+
       - name: Deterministic compute
         run: |
           set -eu
