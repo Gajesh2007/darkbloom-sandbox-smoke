@@ -51,6 +51,17 @@ jobs:
           echo "github.com answered HTTP $code"
           test "$code" -ge 200 -a "$code" -lt 400
 
+      - name: Tunnel throughput (32 MiB release asset)
+        run: |
+          set -eu
+          # The first 32 MiB of a public release asset: github.com redirects to
+          # release-assets.githubusercontent.com, both on the /meta allowlist.
+          url=https://github.com/actions/runner/releases/download/v2.338.0/actions-runner-linux-arm64-2.338.0.tar.gz
+          curl -fsSL --max-time 300 -r 0-33554431 -o "$RUNNER_TEMP/asset.part" \
+            -w 'bytes=%{size_download} seconds=%{time_total} bytes_per_second=%{speed_download}\n' "$url" \
+            | tee "$RUNNER_TEMP/throughput.txt"
+          test "$(wc -c < "$RUNNER_TEMP/asset.part")" -eq 33554432
+
       - name: Job summary
         run: |
           {
@@ -58,4 +69,5 @@ jobs:
             echo "- runner: $RUNNER_NAME"
             echo "- kernel: $(uname -r)"
             echo "- seq digest: $(cat "$RUNNER_TEMP/digest.txt")"
+            echo "- throughput: $(cat "$RUNNER_TEMP/throughput.txt")"
           } >> "$GITHUB_STEP_SUMMARY"
