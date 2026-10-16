@@ -1,3 +1,4 @@
 - 2026-10-16T08:36:24Z local e2e run 1
 - 2026-10-16T08:41:21Z local e2e run 1 (retry)
 - 2026-10-16T08:43:29Z local e2e run 2 (cancel)
+- 2026-10-16T09:04:10Z local e2e run 2b (operator cancel)
