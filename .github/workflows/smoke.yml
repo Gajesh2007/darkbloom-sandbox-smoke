@@ -1,0 +1,63 @@
+name: darkbloom-sandbox-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, darkbloom-smoke-linux-arm64]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Shell step
+        run: |
+          set -eux
+          uname -a
+          id
+          head -3 /etc/os-release
+          git --version
+          mkdir -p smoke-out smoke-cache
+          echo "run ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT} on ${RUNNER_NAME}" > smoke-out/hello.txt
+          sha256sum README.md >> smoke-out/hello.txt
+          echo "cache payload ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}" > smoke-cache/payload.txt
+
+      - name: Cache save
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: smoke-cache
+          key: darkbloom-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Drop local cache directory
+        run: rm -rf smoke-cache
+
+      - name: Cache restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: smoke-cache
+          key: darkbloom-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          fail-on-cache-miss: true
+
+      - name: Verify restored cache
+        run: grep -F "cache payload ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}" smoke-cache/payload.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-out-${{ github.run_id }}-${{ github.run_attempt }}
+          path: smoke-out/
+          retention-days: 1
+
+      - name: Job summary
+        run: |
+          {
+            echo "### Darkbloom sandbox smoke"
+            echo "- runner: ${RUNNER_NAME}"
+            echo "- checkout, cache save/restore and artifact upload completed"
+          } >> "$GITHUB_STEP_SUMMARY"
