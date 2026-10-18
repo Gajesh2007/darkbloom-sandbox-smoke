@@ -2,7 +2,7 @@ name: darkbloom-dev
 
 # Local end-to-end job for the Darkbloom sandbox development resolver. It must
 # stay inside the guardrails: push trigger only, one job, read-only permissions,
-# exact linux_arm64 labels, run-only steps and no expressions. Any change to
+# exact profile labels (macos_arm64 here; linux_arm64 for Linux runs), run-only steps and no expressions. Any change to
 # this file requires refreshing the approval pins (scripts/dev/approval.sh in
 # darkbloom-sandbox).
 on: push
@@ -13,7 +13,7 @@ permissions:
 jobs:
   dev:
     name: darkbloom-dev
-    runs-on: [self-hosted, linux, ARM64, darkbloom-linux-arm64]
+    runs-on: [self-hosted, macOS, ARM64, darkbloom-macos-arm64]
     timeout-minutes: 10
     steps:
       - name: Identify the guest
@@ -21,9 +21,8 @@ jobs:
           set -eux
           uname -a
           id
-          head -3 /etc/os-release
-          nproc
-          free -m
+          sw_vers
+          sysctl -n hw.ncpu hw.memsize
 
       - name: Optional hold for cancellation tests
         run: |
@@ -39,9 +38,9 @@ jobs:
       - name: Deterministic compute
         run: |
           set -eu
-          digest="$(seq 1 200000 | sha256sum | cut -d' ' -f1)"
+          digest="$(seq 1 200000 | shasum -a 256 | cut -d' ' -f1)"
           echo "seq digest: $digest"
-          test "$digest" = "$(seq 1 200000 | sha256sum | cut -d' ' -f1)"
+          test "$digest" = "$(seq 1 200000 | shasum -a 256 | cut -d' ' -f1)"
           echo "$digest" > "$RUNNER_TEMP/digest.txt"
 
       - name: HTTPS through the gateway
