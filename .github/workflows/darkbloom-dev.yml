@@ -2,7 +2,7 @@ name: darkbloom-dev
 
 # Local end-to-end job for the Darkbloom sandbox development resolver. It must
 # stay inside the guardrails: push trigger only, one job, read-only permissions,
-# exact profile labels (macos_arm64 here; linux_arm64 for Linux runs), run-only steps and no expressions. Any change to
+# exact profile labels (linux_arm64 here; macos_arm64 for macOS runs), run-only steps and no expressions. Any change to
 # this file requires refreshing the approval pins (scripts/dev/approval.sh in
 # darkbloom-sandbox).
 on: push
@@ -13,7 +13,7 @@ permissions:
 jobs:
   dev:
     name: darkbloom-dev
-    runs-on: [self-hosted, macOS, ARM64, darkbloom-macos-arm64]
+    runs-on: [self-hosted, linux, ARM64, darkbloom-linux-arm64]
     timeout-minutes: 10
     steps:
       - name: Identify the guest
@@ -21,8 +21,14 @@ jobs:
           set -eux
           uname -a
           id
-          sw_vers
-          sysctl -n hw.ncpu hw.memsize
+          if command -v sw_vers >/dev/null; then
+            sw_vers
+            sysctl -n hw.ncpu hw.memsize
+          else
+            head -3 /etc/os-release
+            nproc
+            grep MemTotal /proc/meminfo
+          fi
 
       - name: Optional hold for cancellation tests
         run: |
